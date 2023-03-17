@@ -1,7 +1,9 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using TurnOffDisplay;
 
 namespace DesktopApp
 {
@@ -13,7 +15,11 @@ namespace DesktopApp
             Icon = new Icon("icon.ico"),
             Visible = true
         };
-        private static readonly ContextMenuStrip contextMenuStrip = new();
+        private static readonly ContextMenuStrip contextMenuStrip = new()
+        {
+            ShowCheckMargin = false,
+            ShowImageMargin = false
+        };
         [DllImport("user32.dll")]
         private static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
 
@@ -26,6 +32,7 @@ namespace DesktopApp
         {
             SetUpTrayIcon();
             SetUpTcpListener();
+            SetUpGenshinMaximizer();
             Application.Run();
         }
 
@@ -44,8 +51,27 @@ namespace DesktopApp
             AddMenuItem("Turn Off Display", TurnOffDisplayToolStripMenuItem_Click);
             AddMenuItem("Turn On Display", TurnOnDisplayToolStripMenuItem_Click);
             AddMenuItem("Exit", ExitToolStripMenuItem_Click);
-            icon.ContextMenuStrip = contextMenuStrip;
-            icon.MouseClick += new MouseEventHandler(Icon_MouseClick);
+            // Create a custom form to host the context menu
+            var contextMenuForm = new Form
+            {
+                TopMost = true,
+                ShowInTaskbar = false,
+                FormBorderStyle = FormBorderStyle.None,
+                StartPosition = FormStartPosition.Manual,
+                Size = new Size(0, 0),
+                Location = new Point(-1000, -1000)
+            };
+
+            icon.MouseUp += (sender, e) =>
+            {
+                if (e.Button == MouseButtons.Right)
+                {
+                    var mi = typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic);
+                    mi.Invoke(icon, null);
+                    contextMenuForm.Show();
+                    contextMenuStrip.Show(Cursor.Position);
+                }
+            };
         }
 
         private static void SetUpTcpListener()
@@ -67,6 +93,23 @@ namespace DesktopApp
                     }
                     stream.Close();
                     client.Close();
+                }
+            })
+            {
+                IsBackground = true
+            };
+            listenerThread.Start();
+        }
+
+        private static void SetUpGenshinMaximizer()
+        {
+            var listenerThread = new Thread(async () =>
+            {
+                while (true)
+                {
+                    var exePath = "GenshinImpact";
+                    TitleBarRemover.RemoveTitleBar(exePath);
+                    Thread.Sleep(3000);
                 }
             })
             {

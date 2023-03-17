@@ -30,18 +30,24 @@ namespace TurnOffDisplay
         private const long WS_EX_DLGMODALFRAME = 0x0001L;
 
         // Method to remove title bar of another program
-        private static void RemoveTitleBar(string executablePath)
+        public static void RemoveTitleBar(string processName)
         {
             var processes = Process.GetProcesses();
             var hwnd = IntPtr.Zero;
             foreach (var p in processes)
             {
-                if (p.MainModule != null && p.MainModule.FileName == executablePath)
+                if (p.ProcessName == processName)
                 {
                     hwnd = p.MainWindowHandle;
                     break;
                 }
             }
+
+            if (hwnd == IntPtr.Zero)
+            {
+                return;
+            }
+
             // Get current style
             long lCurStyle = GetWindowLong(hwnd, GWL_STYLE);
             // Remove title bar elements
@@ -56,12 +62,20 @@ namespace TurnOffDisplay
             // Reapply a 3d border
             lCurStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
             _ = SetWindowLong(hwnd, GWL_EXSTYLE, (int)(lCurStyle | WS_EX_DLGMODALFRAME));
+            // Get current extended style
+            long lCurExStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            // Remove window border
+            lCurExStyle &= ~WS_EX_DLGMODALFRAME;
+            // Apply new extended style
+            _ = SetWindowLong(hwnd, GWL_EXSTYLE, (int)lCurExStyle);// Get screen size
+            var screenWidth = Screen.PrimaryScreen.Bounds.Width;
+            var screenHeight = Screen.PrimaryScreen.Bounds.Height;
             // Redraw
             SetWindowPos(hwnd, IntPtr.Zero,
                     0, 0,
-                    0,
-                    0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+                    screenWidth,
+                    screenHeight,
+                    SWP_NOMOVE | SWP_FRAMECHANGED);
         }
     }
 }
