@@ -109,7 +109,7 @@ namespace DesktopApp
                 {
                     var exePath = "GenshinImpact";
                     TitleBarRemover.RemoveTitleBar(exePath);
-                    Thread.Sleep(3000);
+                    Thread.Sleep(1000);
                 }
             })
             {
