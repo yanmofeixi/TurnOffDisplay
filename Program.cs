@@ -1,38 +1,35 @@
-﻿using System.Net;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Reflection;
 using TurnOffDisplay;
 
 namespace DesktopApp
 {
-    internal partial class Program
+    internal partial class Program : Form
     {
-        private static readonly NotifyIcon icon = new()
+        private static HotkeyManager hotkeyManager;
+        private static TitleBarRemover titleBarRemover;
+        private static DisplayManager displayManager;
+
+        private static NotifyIcon icon = new()
         {
             Text = "TurnOffDisplay",
             Icon = new Icon("icon.ico"),
             Visible = true
         };
-        private static readonly ContextMenuStrip contextMenuStrip = new()
+        private static ContextMenuStrip contextMenuStrip = new()
         {
             ShowCheckMargin = false,
             ShowImageMargin = false
         };
-        [DllImport("user32.dll")]
-        private static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
-
-        private static readonly int WM_SYSCOMMAND = 0x0112;
-        private static readonly int SC_MONITORPOWER = 0xF170;
-        private static readonly int MONITOR_ON = -1;
-        private static readonly int MONITOR_OFF = 2;
 
         private static void Main(string[] args)
         {
+            displayManager = new DisplayManager();
+            titleBarRemover = new TitleBarRemover();
+            hotkeyManager = new HotkeyManager();
+            displayManager.Start();
+            titleBarRemover.Start();
+            hotkeyManager.Start();
             SetUpTrayIcon();
-            SetUpTcpListener();
-            SetUpGenshinMaximizer();
             Application.Run();
         }
 
@@ -74,53 +71,10 @@ namespace DesktopApp
             };
         }
 
-        private static void SetUpTcpListener()
-        {
-            var listenerThread = new Thread(() =>
-            {
-                var listener = new TcpListener(IPAddress.Any, 12345);
-                listener.Start();
-                while (true)
-                {
-                    var client = listener.AcceptTcpClient();
-                    var stream = client.GetStream();
-                    var buffer = new byte[1024];
-                    var bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    var message = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                    if (message == "turn off")
-                    {
-                        TurnOffDisplay();
-                    }
-                    stream.Close();
-                    client.Close();
-                }
-            })
-            {
-                IsBackground = true
-            };
-            listenerThread.Start();
-        }
-
-        private static void SetUpGenshinMaximizer()
-        {
-            var listenerThread = new Thread(async () =>
-            {
-                while (true)
-                {
-                    var exePath = "GenshinImpact";
-                    TitleBarRemover.RemoveTitleBar(exePath);
-                    Thread.Sleep(1000);
-                }
-            })
-            {
-                IsBackground = true
-            };
-            listenerThread.Start();
-        }
 
         private static void ExitToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            CleanUpNotifyIcon();
+            CleanUp();
             Application.Exit();
         }
 
@@ -134,39 +88,26 @@ namespace DesktopApp
 
         private static void TurnOffDisplayToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            TurnOffDisplay();
+            displayManager.TurnOffDisplay();
         }
 
         private static void TurnOnDisplayToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            TurnOnDisplay();
+            displayManager.TurnOnDisplay();
         }
 
         private static void OnApplicationExit(object sender, EventArgs e)
         {
-            icon.Visible = false;
+            CleanUp();
         }
 
-        private static void CleanUpNotifyIcon()
+        private static void CleanUp()
         {
             icon.Visible = false;
             icon.Dispose();
-        }
-
-        private static void TurnOffDisplay()
-        {
-            Task.Run(() =>
-            {
-                _ = SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, MONITOR_OFF);
-            });
-        }
-
-        private static void TurnOnDisplay()
-        {
-            Task.Run(() =>
-            {
-                _ = SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, MONITOR_ON);
-            });
+            hotkeyManager.Stop();
+            titleBarRemover.Stop();
+            displayManager.Stop();
         }
 
     }

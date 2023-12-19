@@ -1,9 +1,8 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace TurnOffDisplay
 {
-    public static partial class TitleBarRemover
+    public partial class TitleBarRemover : Form
     {
         // Win32 API declarations
         [DllImport("user32.dll")]
@@ -29,25 +28,41 @@ namespace TurnOffDisplay
         private const int WS_MAXIMIZEBOX = 0x00010000;
         private const long WS_EX_DLGMODALFRAME = 0x0001L;
 
-        // Method to remove title bar of another program
-        public static void RemoveTitleBar(string processName)
+        private Thread? listenerThread;
+
+        public TitleBarRemover()
         {
-            var processes = Process.GetProcesses();
-            var hwnd = IntPtr.Zero;
-            foreach (var p in processes)
+
+        }
+
+        public void Start()
+        {
+            this.listenerThread = new Thread(() =>
             {
-                if (p.ProcessName == processName)
+                while (true)
                 {
-                    hwnd = p.MainWindowHandle;
-                    break;
+                    var handle = Utility.GetHandleIfActiveProcessMatchName("GenshinImpact");
+                    if (handle != IntPtr.Zero)
+                    {
+                        this.RemoveTitleBar(handle);
+                    }
+                    Thread.Sleep(1000);
                 }
-            }
-
-            if (hwnd == IntPtr.Zero)
+            })
             {
-                return;
-            }
+                IsBackground = true
+            };
+            this.listenerThread.Start();
+        }
 
+        public void Stop()
+        {
+            this.listenerThread.Join();
+        }
+
+        // Method to remove title bar of another program
+        public void RemoveTitleBar(nint hwnd)
+        {
             // Get current style
             long lCurStyle = GetWindowLong(hwnd, GWL_STYLE);
             // Remove title bar elements
