@@ -8,6 +8,7 @@ namespace DesktopApp
         private static HotkeyManager hotkeyManager;
         private static TitleBarRemover titleBarRemover;
         private static DisplayManager displayManager;
+        private static MicrophoneManager microphoneManager;
 
         private static NotifyIcon icon = new()
         {
@@ -26,9 +27,11 @@ namespace DesktopApp
             displayManager = new DisplayManager();
             titleBarRemover = new TitleBarRemover();
             hotkeyManager = new HotkeyManager();
+            microphoneManager = new MicrophoneManager();
             displayManager.Start();
-            titleBarRemover.Start();
+            //titleBarRemover.Start();
             hotkeyManager.Start();
+            microphoneManager.StartAsync();
             SetUpTrayIcon();
             Application.Run();
         }
@@ -47,7 +50,7 @@ namespace DesktopApp
         {
             AddMenuItem("Turn Off Display", TurnOffDisplayToolStripMenuItem_Click);
             AddMenuItem("Turn On Display", TurnOnDisplayToolStripMenuItem_Click);
-            AddMenuItem("Exit", ExitToolStripMenuItem_Click);
+            AddMenuItem("Exit", ExitToolStripMenuItem_ClickAsync);
             // Create a custom form to host the context menu
             var contextMenuForm = new Form
             {
@@ -72,9 +75,9 @@ namespace DesktopApp
         }
 
 
-        private static void ExitToolStripMenuItem_Click(object? sender, EventArgs e)
+        private static async void ExitToolStripMenuItem_ClickAsync(object? sender, EventArgs e)
         {
-            CleanUp();
+            await CleanUp();
             Application.Exit();
         }
 
@@ -101,13 +104,14 @@ namespace DesktopApp
             CleanUp();
         }
 
-        private static void CleanUp()
+        private static async Task CleanUp()
         {
             icon.Visible = false;
             icon.Dispose();
             hotkeyManager.Stop();
             titleBarRemover.Stop();
             displayManager.Stop();
+            await microphoneManager.StopAsync();
         }
 
     }

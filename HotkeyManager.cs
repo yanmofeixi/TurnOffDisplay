@@ -8,7 +8,7 @@ namespace TurnOffDisplay
         private static string saveFolder = @"C:\Users\yanmo\AppData\LocalLow\Eremite Games\Against the Storm\";
         private static string slFolder = @"C:\Users\yanmo\AppData\LocalLow\Eremite Games\Against the Storm\SL\";
         private static string backupFolder = @"C:\Users\yanmo\AppData\LocalLow\Eremite Games\Against the Storm\Backup\";
-        private static string[] filesToCopy = { "MetaSave.save", "Save.save", "WorldSave.save" };
+        private static string[] filesToCopy = { "MetaSave.save", "Save.save", "WorldSave.save", "Profiles.save" };
 
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
