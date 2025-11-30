@@ -14,8 +14,8 @@ namespace DesktopAssistant
             { "StarRail", "StarRail.ahk" }
         };
 
-        // 记录已启动的AHK进程，避免重复启动
-        private readonly Dictionary<string, Process?> runningAhkProcesses = new();
+        // 记录哪些游戏的AHK已启动
+        private readonly HashSet<string> runningGames = new();
         
         private ManagementEventWatcher? startWatcher;
         private ManagementEventWatcher? stopWatcher;
@@ -46,18 +46,11 @@ namespace DesktopAssistant
             stopWatcher?.Dispose();
 
             // 关闭所有已启动的AHK进程
-            foreach (var process in runningAhkProcesses.Values)
+            foreach (var game in runningGames.ToList())
             {
-                try
-                {
-                    if (process != null && !process.HasExited)
-                    {
-                        process.Kill();
-                    }
-                }
-                catch { }
+                StopAhkScript(game);
             }
-            runningAhkProcesses.Clear();
+            runningGames.Clear();
         }
 
         private void CheckRunningGames()
@@ -104,8 +97,7 @@ namespace DesktopAssistant
             if (!gameAhkMapping.TryGetValue(gameName, out var ahkScript)) return;
             
             // 如果已经在运行，不重复启动
-            if (runningAhkProcesses.TryGetValue(gameName, out var existingProcess) && 
-                existingProcess != null && !existingProcess.HasExited)
+            if (runningGames.Contains(gameName))
             {
                 return;
             }
@@ -115,30 +107,47 @@ namespace DesktopAssistant
 
             try
             {
-                var process = Process.Start(new ProcessStartInfo
+                Process.Start(new ProcessStartInfo
                 {
                     FileName = ahkPath,
                     UseShellExecute = true
                 });
-                runningAhkProcesses[gameName] = process;
+                runningGames.Add(gameName);
             }
             catch { }
         }
 
         private void StopAhkScript(string gameName)
         {
-            if (!runningAhkProcesses.TryGetValue(gameName, out var process)) return;
+            if (!gameAhkMapping.TryGetValue(gameName, out var ahkScript)) return;
+            if (!runningGames.Contains(gameName)) return;
 
+            var scriptPath = Path.Combine(ahkFolder, ahkScript);
+            
             try
             {
-                if (process != null && !process.HasExited)
+                // 查找所有 AutoHotkey 进程，通过命令行参数匹配脚本
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'AutoHotkey%'");
+                
+                foreach (ManagementObject obj in searcher.Get())
                 {
-                    process.Kill();
+                    var commandLine = obj["CommandLine"]?.ToString() ?? "";
+                    if (commandLine.Contains(ahkScript, StringComparison.OrdinalIgnoreCase) ||
+                        commandLine.Contains(scriptPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var pid = Convert.ToInt32(obj["ProcessId"]);
+                        try
+                        {
+                            Process.GetProcessById(pid).Kill();
+                        }
+                        catch { }
+                    }
                 }
             }
             catch { }
             
-            runningAhkProcesses.Remove(gameName);
+            runningGames.Remove(gameName);
         }
     }
 }
