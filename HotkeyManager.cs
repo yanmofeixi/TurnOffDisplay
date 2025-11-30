@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace TurnOffDisplay
+namespace DesktopAssistant
 {
     public class HotkeyManager : Form
     {

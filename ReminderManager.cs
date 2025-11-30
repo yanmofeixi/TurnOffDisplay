@@ -1,6 +1,6 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
-namespace TurnOffDisplay
+namespace DesktopAssistant
 {
     public class TaskItem
     {
@@ -42,3 +42,4 @@ namespace TurnOffDisplay
         }
     }
 }
+

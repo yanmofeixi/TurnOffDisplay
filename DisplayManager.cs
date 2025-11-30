@@ -1,6 +1,6 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 
-namespace TurnOffDisplay
+namespace DesktopAssistant
 {
     internal static class DisplayManager
     {
@@ -17,3 +17,4 @@ namespace TurnOffDisplay
             Task.Run(() => SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, -1));
     }
 }
+
