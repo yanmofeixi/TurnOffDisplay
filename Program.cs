@@ -11,7 +11,7 @@ namespace DesktopApp
         private static readonly NotifyIcon icon = new()
         {
             Text = "TurnOffDisplay",
-            Icon = new Icon("icon.ico"),
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
             Visible = true
         };
 
