@@ -8,7 +8,6 @@ namespace DesktopApp
         private static HotkeyManager hotkeyManager;
         private static TitleBarRemover titleBarRemover;
         private static DisplayManager displayManager;
-        private static MicrophoneManager microphoneManager;
         private static ReminderManager reminderManager;
 
         private static NotifyIcon icon = new()
@@ -28,12 +27,9 @@ namespace DesktopApp
             displayManager = new DisplayManager();
             titleBarRemover = new TitleBarRemover();
             hotkeyManager = new HotkeyManager();
-            microphoneManager = new MicrophoneManager();
             reminderManager = new ReminderManager();
-            displayManager.Start();
             //titleBarRemover.Start();
             hotkeyManager.Start();
-            microphoneManager.StartAsync();
             reminderManager.Start();
             SetUpTrayIcon();
             Application.Run();
@@ -78,9 +74,9 @@ namespace DesktopApp
         }
 
 
-        private static async void ExitToolStripMenuItem_ClickAsync(object? sender, EventArgs e)
+        private static void ExitToolStripMenuItem_ClickAsync(object? sender, EventArgs e)
         {
-            await CleanUp();
+            CleanUp();
             Application.Exit();
         }
 
@@ -107,14 +103,12 @@ namespace DesktopApp
             CleanUp();
         }
 
-        private static async Task CleanUp()
+        private static void CleanUp()
         {
             icon.Visible = false;
             icon.Dispose();
             hotkeyManager.Stop();
             titleBarRemover.Stop();
-            displayManager.Stop();
-            await microphoneManager.StopAsync();
         }
 
     }

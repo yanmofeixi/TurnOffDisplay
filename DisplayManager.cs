@@ -1,7 +1,4 @@
-﻿using System.Net;
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 
 namespace TurnOffDisplay
 {
@@ -15,49 +12,8 @@ namespace TurnOffDisplay
         private static readonly int MONITOR_ON = -1;
         private static readonly int MONITOR_OFF = 2;
 
-        private Thread? listenerThread;
-
         public DisplayManager()
         {
-
-        }
-
-        public void Start()
-        {
-            this.SetUpTcpListener();
-        }
-
-        public void Stop()
-        {
-            this.listenerThread.Join();
-        }
-
-        private void SetUpTcpListener()
-        {
-            this.listenerThread = new Thread(() =>
-            {
-                var listener = new TcpListener(IPAddress.Any, 12345);
-                listener.Stop();
-                listener.Start();
-                while (true)
-                {
-                    var client = listener.AcceptTcpClient();
-                    var stream = client.GetStream();
-                    var buffer = new byte[1024];
-                    var bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    var message = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                    if (message == "turn off")
-                    {
-                        this.TurnOffDisplay();
-                    }
-                    stream.Close();
-                    client.Close();
-                }
-            })
-            {
-                IsBackground = true
-            };
-            this.listenerThread.Start();
         }
 
         public void TurnOffDisplay()
