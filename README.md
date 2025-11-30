@@ -30,13 +30,14 @@ DesktopAssistant/
  DesktopAssistant.csproj
  app.manifest
  icon.ico
- publish-standalone/  # 发布输出
+ publish/             # 发布输出
 ```
 
 ## 开发与发布
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish-standalone
+# 发布（依赖框架模式，需要 .NET 8）
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o ./publish
 ```
 
 ## 开机自启
