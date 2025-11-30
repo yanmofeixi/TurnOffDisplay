@@ -9,6 +9,7 @@ namespace DesktopApp
         private static TitleBarRemover titleBarRemover;
         private static DisplayManager displayManager;
         private static MicrophoneManager microphoneManager;
+        private static ReminderManager reminderManager;
 
         private static NotifyIcon icon = new()
         {
@@ -28,10 +29,12 @@ namespace DesktopApp
             titleBarRemover = new TitleBarRemover();
             hotkeyManager = new HotkeyManager();
             microphoneManager = new MicrophoneManager();
+            reminderManager = new ReminderManager();
             displayManager.Start();
             //titleBarRemover.Start();
             hotkeyManager.Start();
             microphoneManager.StartAsync();
+            reminderManager.Start();
             SetUpTrayIcon();
             Application.Run();
         }

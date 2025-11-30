@@ -57,7 +57,10 @@ namespace TurnOffDisplay
 
         public void Stop()
         {
-            this.listenerThread.Join();
+            if (this.listenerThread != null)
+            {
+                this.listenerThread.Join();
+            }
         }
 
         // Method to remove title bar of another program
