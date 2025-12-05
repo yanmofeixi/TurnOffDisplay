@@ -19,20 +19,6 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="icon.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-
-
-  <ItemGroup>
-    <None Update="icon.ico">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
   <!-- 发布后自动清理 bin/obj -->
   <Target Name="CleanAfterPublish" AfterTargets="Publish">
     <RemoveDir Directories="$(BaseIntermediateOutputPath)" />
