@@ -1,13 +1,25 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using DesktopAssistant;
 
 namespace DesktopAssistant
 {
     internal class Program : Form
     {
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
         private static HotkeyManager? hotkeyManager;
         private static ReminderManager? reminderManager;
         private static GameAhkManager? gameAhkManager;
+
+        private static readonly Form contextMenuOwner = new()
+        {
+            Visible = false,
+            ShowInTaskbar = false,
+            WindowState = FormWindowState.Minimized,
+            FormBorderStyle = FormBorderStyle.None
+        };
 
         private static readonly NotifyIcon icon = new()
         {
@@ -38,13 +50,21 @@ namespace DesktopAssistant
         private static void SetUpTrayIcon()
         {
             menu.Items.Add("关闭显示器", null, (_, _) => DisplayManager.TurnOff());
-            menu.Items.Add("开启显示器", null, (_, _) => DisplayManager.TurnOn());
             menu.Items.Add("-");
             menu.Items.Add("启动实时翻译", null, (_, _) => StartRealtimeSubtitle());
             menu.Items.Add("-");
             menu.Items.Add("退出", null, (_, _) => { icon.Visible = false; hotkeyManager?.Stop(); gameAhkManager?.Stop(); Application.Exit(); });
 
-            icon.ContextMenuStrip = menu;
+            icon.MouseUp += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Right || e.Button == MouseButtons.Left)
+                {
+                    // 激活隐藏窗口以确保菜单在失去焦点时能自动关闭
+                    // 同时也解决了菜单可能被任务栏遮挡的问题
+                    SetForegroundWindow(contextMenuOwner.Handle);
+                    menu.Show(Cursor.Position);
+                }
+            };
         }
 
         private static void StartRealtimeSubtitle()

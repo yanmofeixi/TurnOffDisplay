@@ -11,10 +11,12 @@ namespace DesktopAssistant
         private const int SC_MONITORPOWER = 0xF170;
 
         public static void TurnOff() => 
-            Task.Run(() => SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, 2));
-
-        public static void TurnOn() => 
-            Task.Run(() => SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, -1));
+            Task.Run(() => 
+            {
+                // 延迟 500ms 确保用户已经松开鼠标按键，避免立即唤醒
+                Thread.Sleep(500);
+                SendMessage(0xFFFF, WM_SYSCOMMAND, SC_MONITORPOWER, 2);
+            });
     }
 }
 

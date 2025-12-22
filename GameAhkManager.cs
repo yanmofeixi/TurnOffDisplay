@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Management;
+using System.Linq;
 
 namespace DesktopAssistant
 {
@@ -19,6 +20,8 @@ namespace DesktopAssistant
         
         private ManagementEventWatcher? startWatcher;
         private ManagementEventWatcher? stopWatcher;
+
+        private readonly int currentSessionId = Process.GetCurrentProcess().SessionId;
 
         public void Start()
         {
@@ -58,16 +61,34 @@ namespace DesktopAssistant
             foreach (var game in gameAhkMapping.Keys)
             {
                 var processes = Process.GetProcessesByName(game);
-                if (processes.Length > 0)
+                foreach (var process in processes)
                 {
-                    StartAhkScript(game);
+                    if (IsProcessOwnedByCurrentUser((uint)process.Id))
+                    {
+                        StartAhkScript(game);
+                        break;
+                    }
                 }
+            }
+        }
+
+        private bool IsProcessOwnedByCurrentUser(uint processId)
+        {
+            try
+            {
+                using var process = Process.GetProcessById((int)processId);
+                return process.SessionId == currentSessionId;
+            }
+            catch
+            {
+                return false;
             }
         }
 
         private void OnProcessStarted(object sender, EventArrivedEventArgs e)
         {
             var processName = e.NewEvent.Properties["ProcessName"].Value?.ToString();
+            var processId = Convert.ToUInt32(e.NewEvent.Properties["ProcessID"].Value);
             if (string.IsNullOrEmpty(processName)) return;
 
             // 移除.exe后缀进行匹配
@@ -75,7 +96,10 @@ namespace DesktopAssistant
             
             if (gameAhkMapping.ContainsKey(nameWithoutExt))
             {
-                StartAhkScript(nameWithoutExt);
+                if (IsProcessOwnedByCurrentUser(processId))
+                {
+                    StartAhkScript(nameWithoutExt);
+                }
             }
         }
 
@@ -88,7 +112,26 @@ namespace DesktopAssistant
             
             if (gameAhkMapping.ContainsKey(nameWithoutExt))
             {
-                StopAhkScript(nameWithoutExt);
+                // 检查是否还有当前用户的该游戏进程在运行
+                var processes = Process.GetProcessesByName(nameWithoutExt);
+                bool stillRunning = false;
+                foreach (var process in processes)
+                {
+                    try
+                    {
+                        if (IsProcessOwnedByCurrentUser((uint)process.Id))
+                        {
+                            stillRunning = true;
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+
+                if (!stillRunning)
+                {
+                    StopAhkScript(nameWithoutExt);
+                }
             }
         }
 
@@ -126,23 +169,35 @@ namespace DesktopAssistant
             
             try
             {
-                // 查找所有 AutoHotkey 进程，通过命令行参数匹配脚本
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'AutoHotkey%'");
-                
-                foreach (ManagementObject obj in searcher.Get())
+                // 查找所有 AutoHotkey 进程
+                var ahkProcesses = Process.GetProcessesByName("AutoHotkey")
+                    .Concat(Process.GetProcessesByName("AutoHotkeyUX"))
+                    .Concat(Process.GetProcessesByName("AutoHotkey64"))
+                    .Concat(Process.GetProcessesByName("AutoHotkey32"));
+
+                foreach (var process in ahkProcesses)
                 {
-                    var commandLine = obj["CommandLine"]?.ToString() ?? "";
-                    if (commandLine.Contains(ahkScript, StringComparison.OrdinalIgnoreCase) ||
-                        commandLine.Contains(scriptPath, StringComparison.OrdinalIgnoreCase))
+                    try
                     {
-                        var pid = Convert.ToInt32(obj["ProcessId"]);
-                        try
+                        // 确保只关闭当前用户 Session 启动的 AHK 进程
+                        if (process.SessionId != currentSessionId) continue;
+
+                        // 通过命令行参数匹配脚本
+                        using var searcher = new ManagementObjectSearcher(
+                            $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}");
+                        
+                        foreach (ManagementObject obj in searcher.Get())
                         {
-                            Process.GetProcessById(pid).Kill();
+                            var commandLine = obj["CommandLine"]?.ToString() ?? "";
+                            if (commandLine.Contains(ahkScript, StringComparison.OrdinalIgnoreCase) ||
+                                commandLine.Contains(scriptPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                process.Kill();
+                            }
                         }
-                        catch { }
                     }
+                    catch { }
+                    finally { process.Dispose(); }
                 }
             }
             catch { }
