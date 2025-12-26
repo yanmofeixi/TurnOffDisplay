@@ -15,8 +15,8 @@ namespace DesktopAssistant
             { "StarRail", "StarRail.ahk" }
         };
 
-        // 记录哪些游戏的AHK已启动
-        private readonly HashSet<string> runningGames = new();
+        // 记录哪些游戏的AHK已启动，存储游戏名到对应AHK进程的映射
+        private readonly Dictionary<string, Process?> runningGames = new();
         
         private ManagementEventWatcher? startWatcher;
         private ManagementEventWatcher? stopWatcher;
@@ -49,7 +49,7 @@ namespace DesktopAssistant
             stopWatcher?.Dispose();
 
             // 关闭所有已启动的AHK进程
-            foreach (var game in runningGames.ToList())
+            foreach (var game in runningGames.Keys.ToList())
             {
                 StopAhkScript(game);
             }
@@ -140,7 +140,7 @@ namespace DesktopAssistant
             if (!gameAhkMapping.TryGetValue(gameName, out var ahkScript)) return;
             
             // 如果已经在运行，不重复启动
-            if (runningGames.Contains(gameName))
+            if (runningGames.ContainsKey(gameName))
             {
                 return;
             }
@@ -150,12 +150,13 @@ namespace DesktopAssistant
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                // 保存启动的进程对象，以便后续关闭
+                var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = ahkPath,
                     UseShellExecute = true
                 });
-                runningGames.Add(gameName);
+                runningGames[gameName] = process;
             }
             catch { }
         }
@@ -163,46 +164,68 @@ namespace DesktopAssistant
         private void StopAhkScript(string gameName)
         {
             if (!gameAhkMapping.TryGetValue(gameName, out var ahkScript)) return;
-            if (!runningGames.Contains(gameName)) return;
+            if (!runningGames.TryGetValue(gameName, out var ahkProcess)) return;
 
-            var scriptPath = Path.Combine(ahkFolder, ahkScript);
-            
             try
             {
-                // 查找所有 AutoHotkey 进程
-                var ahkProcesses = Process.GetProcessesByName("AutoHotkey")
-                    .Concat(Process.GetProcessesByName("AutoHotkeyUX"))
-                    .Concat(Process.GetProcessesByName("AutoHotkey64"))
-                    .Concat(Process.GetProcessesByName("AutoHotkey32"));
-
-                foreach (var process in ahkProcesses)
+                // 优先使用保存的进程对象来关闭
+                if (ahkProcess != null && !ahkProcess.HasExited)
                 {
-                    try
-                    {
-                        // 确保只关闭当前用户 Session 启动的 AHK 进程
-                        if (process.SessionId != currentSessionId) continue;
-
-                        // 通过命令行参数匹配脚本
-                        using var searcher = new ManagementObjectSearcher(
-                            $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}");
-                        
-                        foreach (ManagementObject obj in searcher.Get())
-                        {
-                            var commandLine = obj["CommandLine"]?.ToString() ?? "";
-                            if (commandLine.Contains(ahkScript, StringComparison.OrdinalIgnoreCase) ||
-                                commandLine.Contains(scriptPath, StringComparison.OrdinalIgnoreCase))
-                            {
-                                process.Kill();
-                            }
-                        }
-                    }
-                    catch { }
-                    finally { process.Dispose(); }
+                    ahkProcess.Kill();
+                    ahkProcess.Dispose();
+                }
+                else
+                {
+                    // 备用方案：通过命令行参数匹配关闭（适用于程序重启后）
+                    KillAhkByCommandLine(ahkScript);
                 }
             }
-            catch { }
+            catch
+            {
+                // 如果直接关闭失败，尝试备用方案
+                try { KillAhkByCommandLine(ahkScript); } catch { }
+            }
             
             runningGames.Remove(gameName);
+        }
+
+        /// <summary>
+        /// 通过命令行参数匹配来关闭 AHK 进程（备用方案）
+        /// </summary>
+        private void KillAhkByCommandLine(string ahkScript)
+        {
+            var scriptPath = Path.Combine(ahkFolder, ahkScript);
+            
+            // 查找所有 AutoHotkey 进程
+            var ahkProcesses = Process.GetProcessesByName("AutoHotkey")
+                .Concat(Process.GetProcessesByName("AutoHotkeyUX"))
+                .Concat(Process.GetProcessesByName("AutoHotkey64"))
+                .Concat(Process.GetProcessesByName("AutoHotkey32"));
+
+            foreach (var process in ahkProcesses)
+            {
+                try
+                {
+                    // 确保只关闭当前用户 Session 启动的 AHK 进程
+                    if (process.SessionId != currentSessionId) continue;
+
+                    // 通过命令行参数匹配脚本
+                    using var searcher = new ManagementObjectSearcher(
+                        $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}");
+                    
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        var commandLine = obj["CommandLine"]?.ToString() ?? "";
+                        if (commandLine.Contains(ahkScript, StringComparison.OrdinalIgnoreCase) ||
+                            commandLine.Contains(scriptPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            process.Kill();
+                        }
+                    }
+                }
+                catch { }
+                finally { process.Dispose(); }
+            }
         }
     }
 }
